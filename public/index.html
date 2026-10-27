@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Grupal en Tiempo Real | WebSockets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- Modal Obligatorio de Identificación de Usuario -->
+    <div id="loginModal" class="modal-overlay">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="brand-badge">⚡ Laboratorio de Comunicación Persistente</div>
+                <h1>Chat Grupal en Tiempo Real</h1>
+                <p>Aplicación distribuida basada en WebSockets con comunicación persistente bidireccional.</p>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="input-group">
+                    <label for="usernameInput">Nombre de usuario</label>
+                    <input type="text" id="usernameInput" placeholder="Ej: Andrea, Carlos, Mateo..." maxlength="24" required autocomplete="off" autofocus>
+                </div>
+                <div id="loginError" class="login-error-msg hidden"></div>
+                <button type="submit" id="btnEnterChat" class="btn-primary">
+                    <span>Entrar al chat</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <span class="tech-tag">Socket.IO 4.8</span>
+                <span class="tech-tag">Node.js</span>
+                <span class="tech-tag">Eventos Bidireccionales</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal de la Aplicación -->
+    <div id="appContainer" class="app-layout hidden">
+        <!-- Barra de Navegación Superior -->
+        <header class="app-header">
+            <div class="header-left">
+                <button id="btnToggleSidebar" class="btn-icon mobile-only" title="Alternar panel de usuarios">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+                <div class="room-info">
+                    <div class="room-title">
+                        <span class="room-icon">💬</span>
+                        <h2>Sala General</h2>
+                    </div>
+                    <span class="room-sub">Conexión persistente activa</span>
+                </div>
+            </div>
+
+            <!-- Búsqueda de mensajes (Reto 12) -->
+            <div class="header-search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="messageSearchInput" placeholder="Buscar mensajes o autor..." autocomplete="off">
+                <button type="button" id="btnClearSearch" class="btn-clear hidden" title="Limpiar búsqueda">✕</button>
+            </div>
+
+            <!-- Estado de conexión reactivo en tiempo real -->
+            <div class="header-right">
+                <div id="connectionBadge" class="status-badge online">
+                    <span class="status-indicator-dot"></span>
+                    <span id="connectionStatusText">🟢 Conectado</span>
+                </div>
+                <span id="socketIdDisplay" class="socket-pill">ID: ...</span>
+            </div>
+        </header>
+
+        <!-- Banner de Mensaje Fijado (Reto 13) -->
+        <div id="pinnedBanner" class="pinned-banner hidden" title="Hacer clic para ver en el chat">
+            <div class="pinned-icon">📌</div>
+            <div class="pinned-content">
+                <strong id="pinnedAuthor">Autor</strong>
+                <p id="pinnedText">Texto del mensaje fijado...</p>
+            </div>
+            <button id="btnUnpin" class="btn-unpin" title="Desfijar mensaje">✕</button>
+        </div>
+
+        <div class="app-body">
+            <!-- Backdrop para móvil -->
+            <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+            <!-- Barra Lateral: Usuarios y Presencia -->
+            <aside id="sidebar" class="app-sidebar">
+                <!-- Tarjeta del Usuario Actual -->
+                <div class="current-user-card">
+                    <div class="avatar-wrapper">
+                        <div id="currentUserAvatar" class="user-avatar main-avatar">A</div>
+                    </div>
+                    <div class="current-user-details">
+                        <span id="currentUserName" class="user-name-title">Cargando...</span>
+                        <div class="presence-selector-wrapper">
+                            <select id="presenceSelect" class="presence-select" title="Cambiar estado de presencia">
+                                <option value="online">🟢 En línea</option>
+                                <option value="away">🟡 Ausente</option>
+                                <option value="busy">🔴 Ocupado</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Usuarios en Línea -->
+                <div class="sidebar-section">
+                    <div class="section-header">
+                        <h3>Usuarios en línea</h3>
+                        <span id="userCountBadge" class="count-pill">0</span>
+                    </div>
+
+                    <div class="user-filter-box">
+                        <input type="text" id="userSearchInput" placeholder="Filtrar conectados..." autocomplete="off">
+                    </div>
+
+                    <ul id="userList" class="user-list">
+                        <!-- Generado dinámicamente por ui.js -->
+                    </ul>
+                </div>
+
+                <div class="sidebar-footer">
+                    <p class="footer-title">Aplicaciones Distribuidas</p>
+                    <span class="footer-sub">Laboratorio WebSockets</span>
+                </div>
+            </aside>
+
+            <!-- Área Central del Chat -->
+            <main class="chat-main">
+                <!-- Feed de Mensajes -->
+                <div id="messagesContainer" class="messages-container">
+                    <!-- Los mensajes y notificaciones del sistema se inyectan dinámicamente -->
+                </div>
+
+                <!-- Indicador de "Está escribiendo..." (Reto 1) -->
+                <div id="typingIndicator" class="typing-indicator hidden">
+                    <div class="typing-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span id="typingText" class="typing-text">Alguien está escribiendo...</span>
+                </div>
+
+                <!-- Barra de Vista Previa de Respuesta (Reto 11) -->
+                <div id="replyPreview" class="reply-preview-bar hidden">
+                    <div class="reply-preview-border"></div>
+                    <div class="reply-preview-body">
+                        <div class="reply-preview-meta">
+                            <span>Respondiendo a <strong id="replyAuthor">Autor</strong></span>
+                            <button type="button" id="btnCancelReply" class="btn-cancel-reply" title="Cancelar respuesta">✕</button>
+                        </div>
+                        <p id="replyText" class="reply-preview-text">Contenido citado...</p>
+                    </div>
+                </div>
+
+                <!-- Formulario de Entrada de Mensaje -->
+                <form id="messageForm" class="message-composer">
+                    <input type="text" id="messageInput" placeholder="Escribe un mensaje en tiempo real..." autocomplete="off" required>
+                    <button type="submit" id="btnSendMessage" class="btn-send" title="Enviar mensaje">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </form>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal de Edición de Mensajes (Requisito Obligatorio) -->
+    <div id="editModal" class="modal-overlay hidden">
+        <div class="edit-dialog">
+            <div class="edit-dialog-header">
+                <h3>Editar Mensaje</h3>
+                <p>Modifica el contenido de tu mensaje. La actualización se reflejará en tiempo real.</p>
+            </div>
+            <form id="editForm">
+                <textarea id="editMessageInput" rows="3" required></textarea>
+                <div class="edit-dialog-actions">
+                    <button type="button" id="btnCancelEdit" class="btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor para Notificaciones Flotantes (Toasts) -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Carga de Scripts Modulares -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/socket.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+
+</html>
