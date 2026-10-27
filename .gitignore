@@ -2,6 +2,12 @@
 node_modules/
 package-lock.json
 
+# Informes y evidencias locales (excluidos del repositorio)
+docs/
+docs/evidencias/
+INFORME_LABORATORIO.md
+*.pdf
+
 # Logs
 logs
 *.log
